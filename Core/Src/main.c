@@ -43,7 +43,13 @@
 TIM_HandleTypeDef htim1;
 
 /* USER CODE BEGIN PV */
-
+int position = 0;
+int lastError = 0;
+float Kp = 0.8;
+float Ki = 0.1;
+float Kd = 0.05;
+volatile int base_speed = 650;
+int errors[10] = {0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -51,12 +57,92 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
-
+void motor_control(int motorspeedl, int motorspeedr);
+void PID_Val(void);
+void PIDCalc(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+int QTR8_read(){
+	int value = 0;
+	value |= HAL_GPIO_ReadPin(LINE_2_GPIO_Port, LINE_2_Pin) << 4;
+	value |= HAL_GPIO_ReadPin(LINE_1_GPIO_Port, LINE_1_Pin) << 3;
+	value |= HAL_GPIO_ReadPin(LINE0_GPIO_Port, LINE0_Pin) << 2; // Điểm giữa
+	value |= HAL_GPIO_ReadPin(LINE1_GPIO_Port, LINE1_Pin) << 1;
+	value |= HAL_GPIO_ReadPin(LINE2_GPIO_Port, LINE2_Pin) << 0;
+	return value;
+	// Xong hàm ta sẽ có giá trị 5 bit đại diện cho trạng thái của 5 cảm biến, từ trái qua phải
+}
 
+void PID_Val(){
+	int sensor_status = QTR8_read();
+	switch(sensor_status) {
+	    case 0b11011:
+	    	position = 0; // Vạch giữa
+	        break;
+	    case 0b11110:
+	    	position = -2000;
+	        break;
+	    case 0b11101:
+	    	position = -1000;
+	        break;
+	    case 0b10111:
+	    	position = 1000;
+	        break;
+	    case 0b01111:
+	    	position = 2000;
+	        break;
+	    default:
+	    	break;
+	}
+}
+
+void past_errors(int err) {
+	for (int i = 9; i > 0; i--) {
+		errors[i] = errors[i - 1];
+	}
+	errors[0] = err;
+}
+
+int errors_sum(int index) {
+	int sum = 0;
+	for (int i = 0; i < index; i++) {
+		sum += errors[i];
+	}
+	return sum;
+}
+
+void PIDCalc(){
+	PID_Val();
+	if (position != 0){
+	int error = position;
+	past_errors(error);
+
+	int P = error;
+	int I = errors_sum(5);
+	int D = error - lastError;
+	lastError = error;
+
+	int motorspeed = P*Kp + I*Ki + D*Kd;
+	int motorspeedl = base_speed + motorspeed;
+	int motorspeedr = base_speed - motorspeed;
+
+	motor_control(motorspeedl, motorspeedr);
+	}else{
+		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 0);
+		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_2, 0);
+	}
+}
+void motor_control(int motorspeedl, int motorspeedr){
+	if (motorspeedl > 999) motorspeedl = 750;
+	if (motorspeedl < 0) motorspeedl = 500;
+	if (motorspeedr > 999) motorspeedr = 750;
+	if (motorspeedr < 0) motorspeedr = 500;
+
+	__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, motorspeedl);
+	__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_2, motorspeedr);
+}
 /* USER CODE END 0 */
 
 /**
@@ -90,13 +176,20 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-
+HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+HAL_GPIO_WritePin(IN1_GPIO_Port, IN1_Pin, GPIO_PIN_RESET);
+HAL_GPIO_WritePin(IN2_GPIO_Port, IN2_Pin, GPIO_PIN_SET);
+HAL_GPIO_WritePin(IN3_GPIO_Port, IN3_Pin, GPIO_PIN_SET);
+HAL_GPIO_WritePin(IN4_GPIO_Port, IN4_Pin, GPIO_PIN_RESET);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  PIDCalc();
+	  HAL_Delay(2); // Delay 10ms để tránh việc tính toán quá nhanh
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -238,10 +331,10 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, IN1_Pin|IN2_Pin|IN3_Pin|IN4_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : LINE1_Pin LINE2_Pin LINE3_Pin LINE4_Pin
-                           LINE5_Pin */
-  GPIO_InitStruct.Pin = LINE1_Pin|LINE2_Pin|LINE3_Pin|LINE4_Pin
-                          |LINE5_Pin;
+  /*Configure GPIO pins : LINE_2_Pin LINE_1_Pin LINE0_Pin LINE1_Pin
+                           LINE2_Pin */
+  GPIO_InitStruct.Pin = LINE_2_Pin|LINE_1_Pin|LINE0_Pin|LINE1_Pin
+                          |LINE2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
