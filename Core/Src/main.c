@@ -45,12 +45,11 @@ TIM_HandleTypeDef htim1;
 /* USER CODE BEGIN PV */
 int position = 0;
 int lastError = 0;
-float Kp = 0.2;
-float Ki = 0.1;
-float Kd = 0.03;
+float Kp = 29;
+float Ki = 12;
+float Kd = 6;
 volatile int base_speed = 500;
 int errors[10] = {0};
-int motorspeed, motorspeedl, motorspeedr;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,6 +93,9 @@ void PID_Val(){
 	    case 0b01111:
 	    	position = 1000;
 	        break;
+	    case 0b00000:
+	    	position = 1803; // Robot đang lơ lửng, không cho chạy
+	        break;
 	    default:
 	    	break;
 	}
@@ -116,7 +118,10 @@ int errors_sum(int index) {
 
 void PIDCalc(){
 	PID_Val();
-	if (position != 0){
+	if (position == 0) {
+		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 750);
+		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_2, 750);
+	}else if (position >= -1000 && position <= 1000){
 	int error = position;
 	past_errors(error);
 
@@ -125,24 +130,24 @@ void PIDCalc(){
 	int D = error - lastError;
 	lastError = error;
 
-//	int motorspeed = P*Kp + I*Ki + D*Kd;
-//	int motorspeedl = base_speed + motorspeed;
-//	int motorspeedr = base_speed - motorspeed;
+	int motorspeed = P*Kp + I*Ki + D*Kd;
+	int motorspeedl = base_speed + motorspeed;
+	int motorspeedr = base_speed - motorspeed;
 	motorspeed = P*Kp + I*Ki + D*Kd;
 	motorspeedl = base_speed + motorspeed;
 	motorspeedr = base_speed - motorspeed;
 
 	motor_control(motorspeedl, motorspeedr);
-	}else{
-		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 600);
-		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_2, 600);
-	}
+		}else{
+			__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 0);
+			__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_2, 0);
+		}
 }
 void motor_control(int motorspeedl, int motorspeedr){
-	if (motorspeedl > 600) motorspeedl = 600;
-	if (motorspeedl < 0) motorspeedl = 0;
-	if (motorspeedr > 600) motorspeedr = 600;
-	if (motorspeedr < 0) motorspeedr = 0;
+	if (motorspeedl > 600) motorspeedl = 800;
+	if (motorspeedl < 0) motorspeedl = 400;
+	if (motorspeedr > 600) motorspeedr = 800;
+	if (motorspeedr < 0) motorspeedr = 400;
 
 	__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, motorspeedl);
 	__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_2, motorspeedr);
@@ -193,7 +198,7 @@ HAL_GPIO_WritePin(IN4_GPIO_Port, IN4_Pin, GPIO_PIN_RESET);
   while (1)
   {
 	  PIDCalc();
-	  HAL_Delay(2); // Delay 10ms để tránh việc tính toán quá nhanh
+	  HAL_Delay(1); // Delay 10ms để tránh việc tính toán quá nhanh
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
