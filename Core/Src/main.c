@@ -45,11 +45,12 @@ TIM_HandleTypeDef htim1;
 /* USER CODE BEGIN PV */
 int position = 0;
 int lastError = 0;
-float Kp = 0.8;
+float Kp = 0.2;
 float Ki = 0.1;
-float Kd = 0.05;
-volatile int base_speed = 650;
+float Kd = 0.03;
+volatile int base_speed = 500;
 int errors[10] = {0};
+int motorspeed, motorspeedl, motorspeedr;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,16 +83,16 @@ void PID_Val(){
 	    	position = 0; // Vạch giữa
 	        break;
 	    case 0b11110:
-	    	position = -2000;
-	        break;
-	    case 0b11101:
 	    	position = -1000;
 	        break;
+	    case 0b11101:
+	    	position = -500;
+	        break;
 	    case 0b10111:
-	    	position = 1000;
+	    	position = 500;
 	        break;
 	    case 0b01111:
-	    	position = 2000;
+	    	position = 1000;
 	        break;
 	    default:
 	    	break;
@@ -124,21 +125,24 @@ void PIDCalc(){
 	int D = error - lastError;
 	lastError = error;
 
-	int motorspeed = P*Kp + I*Ki + D*Kd;
-	int motorspeedl = base_speed + motorspeed;
-	int motorspeedr = base_speed - motorspeed;
+//	int motorspeed = P*Kp + I*Ki + D*Kd;
+//	int motorspeedl = base_speed + motorspeed;
+//	int motorspeedr = base_speed - motorspeed;
+	motorspeed = P*Kp + I*Ki + D*Kd;
+	motorspeedl = base_speed + motorspeed;
+	motorspeedr = base_speed - motorspeed;
 
 	motor_control(motorspeedl, motorspeedr);
 	}else{
-		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 0);
-		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_2, 0);
+		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 600);
+		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_2, 600);
 	}
 }
 void motor_control(int motorspeedl, int motorspeedr){
-	if (motorspeedl > 999) motorspeedl = 750;
-	if (motorspeedl < 0) motorspeedl = 500;
-	if (motorspeedr > 999) motorspeedr = 750;
-	if (motorspeedr < 0) motorspeedr = 500;
+	if (motorspeedl > 600) motorspeedl = 600;
+	if (motorspeedl < 0) motorspeedl = 0;
+	if (motorspeedr > 600) motorspeedr = 600;
+	if (motorspeedr < 0) motorspeedr = 0;
 
 	__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, motorspeedl);
 	__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_2, motorspeedr);
