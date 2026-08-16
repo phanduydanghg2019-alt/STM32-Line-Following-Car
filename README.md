@@ -7,10 +7,10 @@ Dự án xe dò line (Line Following Robot) sử dụng vi điều khiển **STM
 ## 🛠️ Phần Cứng Sử Dụng
 
 * **Vi xử lý:** STM32F4 (ARM Cortex-M4)
-* **Cảm biến:** Cụm 5 mắt đọc hồng ngoại (QTR-8 / IR Sensor Module)
-* **Mạch điều khiển động cơ:** L298N / TB6612 / Mạch cầu H tương đương
+* **Cảm biến:** Cụm 5 mắt đọc hồng ngoại
+* **Mạch điều khiển động cơ:** L298N
 * **Động cơ:** 2 Động cơ DC (Trái/Phải)
-* **Nguồn điện:** Pin LiPo / Pin 18650 (7.4V - 12V)
+* **Nguồn điện:** Pin 18650 (12V)
 
 ---
 
